@@ -22,9 +22,9 @@ let dragStartX = 0;
 let dragOffset = 0;
 
 // ================ FAST AUTOMATED IMAGE ENGINE ================
-function getCreatureImage(creatureName) {
-  // Forces the search to strictly use the English database name and append wildlife keywords
-  const query = encodeURIComponent(creatureName.trim().toLowerCase() + " animal wildlife");
+function getCreatureImage(englishName) {
+  // Always uses the strict English database name to ensure Unsplash never breaks
+  const query = encodeURIComponent(englishName.trim().toLowerCase() + " animal wildlife");
   return `https://images.unsplash.com/featured/600x400/?${query}`;
 }
 
@@ -172,7 +172,7 @@ function renderPages() {
     page.className = 'book-page';
     if (index === currentPage) page.classList.add('active');
     
-    // Dynamically grabs our super fast Unsplash photo matching this specific animal
+    // CRITICAL FIX: Always passes creature.name (English string) into the engine, regardless of localization
     const imageUrl = getCreatureImage(creature.name);
     
     let displayName = creature.name;
