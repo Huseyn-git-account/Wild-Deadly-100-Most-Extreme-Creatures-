@@ -1,91 +1,93 @@
 // =============================================
-// WILD AND DEADLY — Full Corrected Code
+// WILD AND DEADLY — Full Corrected Engine
 // =============================================
 
-let currentPage = 0;
-let totalPages = 0;
-let currentChapter = 0;
-let currentCreatures = [];
-let bookmarks = JSON.parse(localStorage.getItem('wd_bookmarks') || '[]');
-let currentLang = localStorage.getItem('wd_lang') || 'en';
-
-// Initialization
+// Ensure buttons are attached when page loads
 document.addEventListener('DOMContentLoaded', () => {
   buildSidebar();
   loadChapter(0);
+  
+  // Attach Event Listeners to UI Buttons
+  document.getElementById('langBtn')?.addEventListener('click', toggleLanguage);
+  document.getElementById('randomBtn')?.addEventListener('click', showRandomCreature);
+  document.getElementById('bookmarkBtn')?.addEventListener('click', showBookmarks);
+  document.getElementById('filterDangerBtn')?.addEventListener('click', toggleDangerFilter);
+  document.getElementById('prevPageBtn')?.addEventListener('click', prevPage);
+  document.getElementById('nextPageBtn')?.addEventListener('click', nextPage);
 });
 
-// Translation Logic
-function t(key) {
-  const EN = {
-    'ui.appTitle': '⚡ Wild & Deadly',
-    'ui.appSubtitle': '100 Extreme Creatures',
-    'ui.extremeFact': '⚡ EXTREME FACT',
-    'ui.pageOf': 'Page',
-    'ui.of': 'of'
-  };
-  return EN[key] || key;
+// Navigation Logic
+function prevPage() { if (currentPage > 0) goToPage(currentPage - 1); }
+function nextPage() { if (currentPage < totalPages - 1) goToPage(currentPage + 1); }
+
+function goToPage(index) {
+  currentPage = index;
+  const container = document.getElementById('pagesContainer');
+  if (container) {
+    container.style.transform = `translateX(-${index * 100}%)`;
+  }
+  updateNav();
 }
 
-// Sidebar Construction
-function buildSidebar() {
-  const nav = document.getElementById('sidebarNav');
-  nav.innerHTML = CHAPTERS.map((ch, i) => `
-    <button class="chapter-btn ${i === 0 ? 'active' : ''}" onclick="loadChapter(${i})" data-chapter="${i}">
-      ${ch.emoji} ${ch.title}
-    </button>
-  `).join('');
-}
-
-// Core Chapter/Page Logic
+// Chapter/Page Rendering
 function loadChapter(chapterIndex) {
   currentChapter = chapterIndex;
   currentCreatures = CREATURES.filter(c => c.chapter === chapterIndex);
   
-  // Highlight active button
-  document.querySelectorAll('.chapter-btn').forEach((btn, i) => {
-    btn.classList.toggle('active', i === chapterIndex);
-  });
-
-  buildPages();
-}
-
-function buildPages() {
   const container = document.getElementById('pagesContainer');
-  totalPages = currentCreatures.length;
-  currentPage = 0;
-  
-  container.innerHTML = currentCreatures.map(c => `
-    <div class="page">
-      <div class="creature-card">
-        <div class="card-image-wrapper">
-          <img class="card-image" src="https://commons.wikimedia.org/wiki/Special:FilePath/${c.name.replace(/\s+/g, '_')}.jpg?width=600" 
-               alt="${c.name}" onerror="this.style.display='none'">
+  if (!container) return;
+
+  container.innerHTML = currentCreatures.map(c => {
+    const data = getCreatureData(c);
+    const formattedName = data.name.replace(/\s+/g, '_');
+    const imageSrc = `https://commons.wikimedia.org/wiki/Special:FilePath/${formattedName}.jpg?width=600`;
+
+    return `
+      <div class="page">
+        <div class="creature-card">
+          <img class="card-image" src="${imageSrc}" alt="${data.name}" onerror="this.style.display='none'">
+          <h2>${data.name}</h2>
+          <p><em>${data.scientific}</em></p>
+          <p>${data.story.split('. ').join('.<br><br>')}</p>
+          <div class="extreme-fact">⚡ ${t('ui.extremeFact')}: ${data.fact}</div>
         </div>
-        <h2>${c.name}</h2>
-        <p><em>${c.scientific}</em></p>
-        <p>${c.story}</p>
-        <div class="extreme-fact"><strong>${t('ui.extremeFact')}:</strong> ${c.fact}</div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
-  updateNav();
+  totalPages = currentCreatures.length;
+  goToPage(0);
 }
 
-// Navigation Logic
-function goToPage(index) {
-  if (index < 0 || index >= totalPages) return;
-  currentPage = index;
-  document.getElementById('pagesContainer').style.transform = `translateX(-${index * 100}%)`;
-  updateNav();
+// Button Features
+function toggleLanguage() {
+  currentLang = (currentLang === 'en' ? 'ru' : 'en');
+  localStorage.setItem('wd_lang', currentLang);
+  loadChapter(currentChapter);
 }
 
-function nextPage() { if (currentPage < totalPages - 1) goToPage(currentPage + 1); }
-function prevPage() { if (currentPage > 0) goToPage(currentPage - 1); }
+function toggleDangerFilter() {
+  dangerFilterActive = !dangerFilterActive;
+  document.getElementById('filterDangerBtn').classList.toggle('active', dangerFilterActive);
+  loadChapter(currentChapter);
+}
+
+function showRandomCreature() {
+  const random = CREATURES[Math.floor(Math.random() * CREATURES.length)];
+  loadChapter(random.chapter);
+  setTimeout(() => {
+    const idx = currentCreatures.findIndex(c => c.id === random.id);
+    goToPage(idx);
+  }, 100);
+}
+
+function showBookmarks() {
+  currentCreatures = CREATURES.filter(c => bookmarks.includes(c.id));
+  loadChapter(currentChapter);
+}
 
 function updateNav() {
   document.getElementById('pageIndicator').textContent = `${t('ui.pageOf')} ${currentPage + 1} ${t('ui.of')} ${totalPages}`;
-  document.getElementById('prevPageBtn').disabled = currentPage === 0;
-  document.getElementById('nextPageBtn').disabled = currentPage === totalPages - 1;
+  document.getElementById('prevPageBtn').disabled = (currentPage === 0);
+  document.getElementById('nextPageBtn').disabled = (currentPage === totalPages - 1);
 }
