@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Wild & Deadly">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+  <title>Wild and Deadly — 100 Most Extreme Creatures</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Overlay (Mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h1>⚡ Wild & Deadly</h1>
+        <div class="subtitle">100 Extreme Creatures</div>
+      </div>
+      <nav class="sidebar-nav" id="sidebarNav"></nav>
+      <div class="sidebar-footer">
+        <button class="header-btn" onclick="showRandomCreature()">🎲 Random</button>
+        <button class="header-btn" onclick="showBookmarks()">🔖 Bookmarks</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Install Banner -->
+      <div class="install-banner" id="installBanner">
+        <span class="install-banner-text">📲 Install Wild & Deadly for offline reading</span>
+        <button class="install-banner-btn" id="installBtn">Install</button>
+        <button class="install-banner-close" onclick="document.getElementById('installBanner').classList.remove('show')">✕</button>
+      </div>
+
+      <!-- Top Header -->
+      <header class="top-header">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileSidebar()">☰</button>
+        <div class="page-title" id="pageTitle">Wild & Deadly</div>
+        <div class="header-controls">
+          <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search creatures..." oninput="handleSearch(this.value)">
+          </div>
+          <button class="header-btn" id="dangerFilterBtn" onclick="toggleDangerFilter()" title="Show only 5-skull creatures">💀 Filter</button>
+          <button class="header-btn" onclick="showRandomCreature()" title="Random creature">🎲</button>
+          <button class="header-btn" onclick="showBookmarks()" title="Bookmarks">🔖</button>
+          <button class="header-btn" id="langBtn" onclick="toggleLanguage()" title="Switch language">🇬🇧</button>
+        </div>
+      </header>
+
+      <!-- Reading Progress -->
+      <div class="reading-progress">
+        <div class="reading-progress-bar" id="readingProgress" style="width: 0%"></div>
+      </div>
+
+      <!-- Reading Area (Swipeable Pages) -->
+      <div class="reading-area" id="readingArea">
+        <div class="pages-container" id="pagesContainer">
+          <!-- Pages inserted dynamically -->
+        </div>
+      </div>
+
+      <!-- Bottom Page Navigation -->
+      <div class="page-nav">
+        <button class="page-nav-btn" id="prevPageBtn" onclick="prevPage()">◀ <span class="btn-text">Back</span></button>
+        <div class="page-indicator" id="pageIndicator">Page 1 of 1</div>
+        <button class="page-nav-btn" id="nextPageBtn" onclick="nextPage()"><span class="btn-text">Next</span> ▶</button>
+      </div>
+
+      <!-- Swipe Hint -->
+      <div class="swipe-hint">
+        <span class="arrow left">◀</span>
+        <span>Swipe or click arrows to turn pages</span>
+        <span class="arrow right">▶</span>
+      </div>
+
+      <!-- Bottom Navigation (Mobile) -->
+      <nav class="bottom-nav" id="bottomNav">
+        <div class="bottom-nav-inner" id="bottomNavInner"></div>
+      </nav>
+    </main>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/ru.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
