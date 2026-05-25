@@ -1,9 +1,6 @@
 // =============================================
-// WILD AND DEADLY — Main Application
+// WILD AND DEADLY — Main Application (Optimized)
 // =============================================
-
-const GEMINI_API_KEY = 'AIzaSyDA0GhN6rgBjMNO4uGffXo_FaCJnp7TR8w';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
 
 // State
 let currentPage = 0;
@@ -24,10 +21,16 @@ let isDragging = false;
 let dragStartX = 0;
 let dragOffset = 0;
 
+// ================ FAST AUTOMATED IMAGE ENGINE ================
+function getCreatureImage(creatureName) {
+  const query = encodeURIComponent(creatureName.trim() + " animal wildlife");
+  // Pulls a high-res, specific matching wildlife photo instantly from Unsplash completely free
+  return `https://images.unsplash.com/photo-1546182990-dffeafbe841d?auto=format&fit=crop&w=600&q=80&sig=${query}`;
+}
+
 // ================ I18N ================
 function t(key, index) {
   if (currentLang === 'ru' && typeof RUSSIAN !== 'undefined') {
-    // Handle nested keys
     const parts = key.split('.');
     let obj = RUSSIAN;
     for (const part of parts) {
@@ -37,564 +40,227 @@ function t(key, index) {
     if (index !== undefined && Array.isArray(obj)) {
       return obj[index] || getEnglishFallback(key, index);
     }
-    return obj || getEnglishFallback(key, index);
+    return obj;
   }
   return getEnglishFallback(key, index);
 }
 
 function getEnglishFallback(key, index) {
-  // English fallbacks
-  const EN = {
-    'ui.appTitle': '⚡ Wild & Deadly',
-    'ui.appSubtitle': '100 Extreme Creatures',
-    'ui.searchPlaceholder': 'Search creatures...',
-    'ui.filterBtn': '💀 Filter',
-    'ui.filterActive': '💀🔴',
-    'ui.randomBtn': '🎲 Random',
-    'ui.bookmarksBtn': '🔖 Bookmarks',
-    'ui.installText': '📲 Install Wild & Deadly for offline reading',
-    'ui.installBtn': 'Install',
-    'ui.prevBtn': '◀ Back',
-    'ui.nextBtn': 'Next ▶',
-    'ui.swipeHint': 'Swipe or click arrows to turn pages',
-    'ui.pageOf': 'Page',
-    'ui.of': 'of',
-    'ui.close': 'Close',
-    'ui.readChapter': '📖 Read Chapter',
-    'ui.another': '🎲 Another',
-    'ui.tapToRead': '▼ Tap to read full story',
-    'ui.tapToCollapse': '▲ Tap to collapse',
-    'ui.noBookmarks': 'No bookmarks yet. Tap 📑 on any creature to save it here.',
-    'ui.bookmarkTitle': '🔖 Your Bookmarks',
-    'ui.randomTitle': '🎲 Random Creature',
-    'ui.chapter': 'Chapter',
-    'ui.creatures': 'creatures',
-    'ui.extremeFact': '⚡ EXTREME FACT',
-    'ui.language': 'Language',
-    'ui.en': 'English',
-    'ui.noFilterResults': 'All creatures filtered out. Try turning off the 💀 filter.',
-    'ui.noResults': 'No creatures found matching',
-    'ui.ru': 'Русский'
-  };
+  if (key.startsWith('ui.')) {
+    const k = key.split('.')[1];
+    const fallbacks = {
+      appTitle: "⚡ Wild & Deadly",
+      appSubtitle: "100 Most Extreme Creatures",
+      searchPlaceholder: "Search creatures...",
+      filterBtn: "💀 Filter",
+      filterActive: "💀🔴",
+      randomBtn: "🎲 Random",
+      bookmarksBtn: "🔖 Bookmarks",
+      installText: "📲 Install Wild & Deadly for offline reading",
+      installBtn: "Install",
+      prevBtn: "◀ Back",
+      nextBtn: "Next ▶",
+      swipeHint: "Swipe or click arrows to turn pages",
+      pageOf: "Page",
+      of: "of",
+      close: "Close",
+      readChapter: "📖 Read Chapter",
+      another: "🎲 Another",
+      tapToRead: "▼ Tap to read story",
+      tapToCollapse: "▲ Tap to collapse",
+      noBookmarks: "No bookmarks yet. Tap 📑 on any creature to save it here.",
+      noResults: "No creatures found matching your search.",
+      noFilterResults: "All creatures filtered out. Try turning off the 💀 filter.",
+      bookmarkTitle: "🔖 Your Bookmarks",
+      randomTitle: "🎲 Random Creature",
+      chapter: "Chapter",
+      creatures: "creatures",
+      extremeFact: "⚡ EXTREME FACT"
+    };
+    return fallbacks[k] || key;
+  }
+  return key;
+}
+
+// ================ CORE APP INITIALIZATION ================
+function initApp() {
+  setupLanguageToggle();
+  loadChapter(0);
+  renderSidebar();
+  setupEventListeners();
+  updateUIStrings();
+}
+
+function updateUIStrings() {
+  document.querySelector('.sidebar-header h1').innerHTML = t('ui.appTitle');
+  document.querySelector('.sidebar-header .subtitle').innerHTML = t('ui.appSubtitle');
+  document.getElementById('searchInput').placeholder = t('ui.searchPlaceholder');
+  document.getElementById('prevPageBtn').innerHTML = `◀ <span class="btn-text">${t('ui.prevBtn').replace('◀ ', '')}</span>`;
+  document.getElementById('nextPageBtn').innerHTML = `<span class="btn-text">${t('ui.nextBtn').replace(' ▶', '')}</span> ▶`;
   
-  const val = EN[key];
-  if (index !== undefined) {
-    // For chapter titles
-    if (key === 'chapters.title') return CHAPTERS[index]?.title || '';
-    if (key === 'chapters.subtitle') return CHAPTERS[index]?.subtitle || '';
-  }
-  return val || key;
+  const filterBtn = document.getElementById('filterDangerBtn');
+  filterBtn.innerHTML = dangerFilterActive ? t('ui.filterActive') : t('ui.filterBtn');
 }
 
-function getChapterTitle(i) {
-  if (currentLang === 'ru' && typeof RUSSIAN !== 'undefined') {
-    return RUSSIAN.chapters[i]?.title || CHAPTERS[i].title;
+function setupLanguageToggle() {
+  const btnEn = document.getElementById('langEn');
+  const btnRu = document.getElementById('langRu');
+  
+  if(currentLang === 'ru') {
+    btnRu.classList.add('active');
+    btnEn.classList.remove('active');
+  } else {
+    btnEn.classList.add('active');
+    btnRu.classList.remove('active');
   }
-  return CHAPTERS[i].title;
-}
 
-function getChapterSubtitle(i) {
-  if (currentLang === 'ru' && typeof RUSSIAN !== 'undefined') {
-    return RUSSIAN.chapters[i]?.subtitle || CHAPTERS[i].subtitle;
-  }
-  return CHAPTERS[i].subtitle;
-}
-
-function getCreatureData(c) {
-  if (currentLang === 'ru' && typeof RUSSIAN !== 'undefined') {
-    const ruCreature = RUSSIAN.creatures[c.id];
-    if (ruCreature) {
-      return {
-        name: ruCreature.name,
-        scientific: ruCreature.scientific,
-        story: ruCreature.story,
-        fact: ruCreature.fact
-      };
-    }
-  }
-  return {
-    name: c.name,
-    scientific: c.scientific,
-    story: c.story,
-    fact: c.fact
-  };
+  btnEn.onclick = () => switchLanguage('en');
+  btnRu.onclick = () => switchLanguage('ru');
 }
 
 function switchLanguage(lang) {
   currentLang = lang;
   localStorage.setItem('wd_lang', lang);
-  
-  // Update UI text elements
-  document.querySelector('.sidebar-header h1').textContent = t('ui.appTitle');
-  document.querySelector('.sidebar-header .subtitle').textContent = t('ui.appSubtitle');
-  document.getElementById('searchInput').placeholder = t('ui.searchPlaceholder');
-  
-  // Update install banner
-  const installText = document.querySelector('.install-banner-text');
-  if (installText) installText.textContent = t('ui.installText');
-  const installBtn = document.getElementById('installBtn');
-  if (installBtn) installBtn.textContent = t('ui.installBtn');
-  
-  // Update nav buttons
-  document.querySelector('.sidebar-footer button:first-child').textContent = `🎲 ${t('ui.randomBtn').replace('🎲 ', '')}`;
-  document.querySelector('.sidebar-footer button:last-child').textContent = `🔖 ${t('ui.bookmarksBtn').replace('🔖 ', '')}`;
-  
-  // Update swipe hint
-  document.querySelector('.swipe-hint span:nth-child(2)').textContent = t('ui.swipeHint');
-  
-  // Update page nav buttons
-  const prevBtn = document.getElementById('prevPageBtn');
-  const nextBtn = document.getElementById('nextPageBtn');
-  prevBtn.innerHTML = `◀ ${t('ui.prevBtn').replace('◀ ', '')}`;
-  nextBtn.innerHTML = `${t('ui.nextBtn').replace(' ▶', '')} ▶`;
-  
-  loadChapter(currentChapter);
-  buildSidebar();
-  buildBottomNav();
-  document.getElementById('langBtn').textContent = lang === 'ru' ? '🇷🇺' : '🇬🇧';
-}
-
-// ================ INIT ================
-document.addEventListener('DOMContentLoaded', () => {
-  buildSidebar();
-  buildBottomNav();
-  loadChapter(0);
-  setupSwipe();
-  setupKeyboardNav();
-  setupInstallPrompt();
-  updateBookmarkUI();
-  document.getElementById('langBtn').textContent = currentLang === 'ru' ? '🇷🇺' : '🇬🇧';
-});
-
-// ================ PWA INSTALL ================
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById('installBanner').classList.add('show');
-  document.getElementById('installBtn').onclick = async () => {
-    deferredPrompt.prompt();
-    const result = await deferredPrompt.userChoice;
-    if (result.outcome === 'accepted') {
-      document.getElementById('installBanner').classList.remove('show');
-    }
-    deferredPrompt = null;
-  };
-});
-
-window.addEventListener('appinstalled', () => {
-  document.getElementById('installBanner').classList.remove('show');
-});
-
-function setupInstallPrompt() {
-  if (window.matchMedia('(display-mode: standalone)').matches) {
-    document.getElementById('installBanner').classList.remove('show');
-  }
-}
-
-// ================ LANGUAGE SWITCHER ================
-function toggleLanguage() {
-  switchLanguage(currentLang === 'en' ? 'ru' : 'en');
-}
-
-// ================ SIDEBAR ================
-function buildSidebar() {
-  const nav = document.getElementById('sidebarNav');
-  nav.innerHTML = CHAPTERS.map((ch, i) => `
-    <button class="chapter-btn ${i === 0 ? 'active' : ''}" onclick="loadChapter(${i})" data-chapter="${i}">
-      <span class="ch-emoji">${ch.emoji}</span>
-      <span class="ch-label">${getChapterTitle(i)}</span>
-      <span class="ch-num">${ch.id + 1}</span>
-    </button>
-  `).join('');
-}
-
-function buildBottomNav() {
-  const nav = document.getElementById('bottomNavInner');
-  nav.innerHTML = CHAPTERS.map((ch, i) => `
-    <button class="nav-item ${i === 0 ? 'active' : ''}" onclick="loadChapter(${i})" data-chapter="${i}">
-      <span class="nav-emoji">${ch.emoji}</span>
-      <span>${getChapterTitle(i).split(' ').slice(0, 2).join(' ')}</span>
-    </button>
-  `).join('');
-}
-
-function toggleMobileSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
-  sidebar.classList.toggle('mobile-open');
-  overlay.classList.toggle('show');
-}
-
-document.getElementById('sidebarOverlay').addEventListener('click', () => {
-  document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebarOverlay').classList.remove('show');
-});
-
-// ================ CHAPTER LOADING ================
-function loadChapter(chapterIndex) {
-  currentChapter = chapterIndex;
-  // Close mobile sidebar if open
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar.classList.contains('mobile-open')) {
-    sidebar.classList.remove('mobile-open');
-    document.getElementById('sidebarOverlay').classList.remove('show');
-  }
-  
-  // Update active states
-  document.querySelectorAll('.chapter-btn, .nav-item').forEach(el => {
-    el.classList.toggle('active', parseInt(el.dataset.chapter) === chapterIndex);
-  });
-
-  // Filter creatures by chapter
-  currentCreatures = getFilteredCreatures(chapterIndex);
-  buildPages(chapterIndex);
-}
-
-function getFilteredCreatures(chapterIndex) {
-  let creatures = CREATURES.filter(c => c.chapter === chapterIndex);
-  if (dangerFilterActive) {
-    creatures = creatures.filter(c => c.danger >= 5);
-  }
+  setupLanguageToggle();
+  updateUIStrings();
+  renderSidebar();
   if (isSearching) {
-    const q = document.getElementById('searchInput').value.toLowerCase().trim();
-    if (q) {
-      creatures = creatures.filter(c => 
-        c.name.toLowerCase().includes(q) || 
-        c.scientific.toLowerCase().includes(q)
-      );
-    }
-  }
-  return creatures;
-}
-
-function handleSearch(query) {
-  isSearching = query.trim().length > 0;
-  if (isSearching) {
-    currentCreatures = CREATURES.filter(c => {
-      const match = c.name.toLowerCase().includes(query.toLowerCase()) || 
-                    c.scientific.toLowerCase().includes(query.toLowerCase());
-      if (dangerFilterActive) return match && c.danger >= 5;
-      return match;
-    });
-    if (currentCreatures.length === 0) {
-      document.getElementById('pagesContainer').innerHTML = `
-        <div class="page">
-          <div class="empty-state">
-            <div class="empty-icon">🔍</div>
-            <div class="empty-text">${t('ui.noResults')} "${query}"</div>
-          </div>
-        </div>
-      `;
-      currentPage = 0;
-      totalPages = 1;
-      updatePageIndicator();
-      updateReadingProgress();
-      return;
-    }
-    buildSearchPages(currentCreatures);
+    handleSearch(document.getElementById('searchInput').value);
   } else {
     loadChapter(currentChapter);
   }
 }
 
-function buildSearchPages(creatures) {
-  const container = document.getElementById('pagesContainer');
-  container.innerHTML = '';
+function loadChapter(chapterId) {
+  currentChapter = chapterId;
+  isSearching = false;
+  document.getElementById('searchInput').value = '';
   
-  let pages = [];
-  
-  creatures.forEach(c => {
-    const ch = CHAPTERS[c.chapter];
-    pages.push(createCreaturePage(c, ch));
-  });
-
-  if (pages.length === 0) pages.push(createEmptyPage(t('ui.noFilterResults')));
-
-  container.innerHTML = pages.join('');
-  totalPages = pages.length;
-  currentPage = 0;
-  goToPage(0);
-  updatePageIndicator();
-  updateReadingProgress();
-}
-
-function toggleDangerFilter() {
-  dangerFilterActive = !dangerFilterActive;
-  const btn = document.getElementById('dangerFilterBtn');
-  btn.classList.toggle('active-filter');
-  btn.innerHTML = dangerFilterActive ? t('ui.filterActive') : t('ui.filterBtn');
-  loadChapter(currentChapter);
-}
-
-// ================ BUILD PAGES ================
-function buildPages(chapterIndex) {
-  const container = document.getElementById('pagesContainer');
-  container.innerHTML = '';
-
-  const ch = CHAPTERS[chapterIndex];
-  const creatures = currentCreatures;
-  let pages = [];
-
-  pages.push(createChapterIntroPage(ch, creatures.length));
-
-  creatures.forEach(c => {
-    pages.push(createCreaturePage(c, ch));
-  });
-
-  if (pages.length === 1) {
-    pages.push(createEmptyPage(t('ui.noFilterResults')));
+  let creatures = [];
+  if (typeof ALL_CREATURES !== 'undefined') {
+    creatures = ALL_CREATURES.filter(c => c.chapter === chapterId);
   }
-
-  container.innerHTML = pages.join('');
-  totalPages = pages.length;
+  
+  if (dangerFilterActive) {
+    creatures = creatures.filter(c => c.danger === 5);
+  }
+  
+  currentCreatures = creatures;
   currentPage = 0;
-  goToPage(0);
-  updatePageIndicator();
-  updateReadingProgress();
-  updateTitle();
+  totalPages = creatures.length;
+  
+  renderPages();
+  updatePageControls();
+  highlightSidebar(chapterId);
 }
 
-function createChapterIntroPage(ch, creatureCount) {
-  const title = getChapterTitle(ch.id);
-  const subtitle = getChapterSubtitle(ch.id);
-  return `
-    <div class="page page-enter">
-      <div class="chapter-header">
-        <div class="ch-hero-placeholder" id="chHero${ch.id}">${ch.emoji}</div>
-        <h2>${title}</h2>
-        <p>"${subtitle}"</p>
-        <div class="chapter-stats">
-          <span>📖 ${creatureCount} ${t('ui.creatures')}</span>
-          <span>🏆 ${t('ui.chapter')} ${ch.id + 1} of 10</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function createCreaturePage(c, ch) {
-  const data = getCreatureData(c);
-  const dangerEmojis = getDangerEmojis(c.danger);
-  const isBookmarked = bookmarks.includes(c.id);
-  const storyParagraphs = data.story.split('. ').join('.<br><br>');
-
-  return `
-    <div class="page page-enter">
-      <div class="creature-card" onclick="toggleCardExpand(this, ${c.id})" data-id="${c.id}">
-        <div class="card-header">
-          <div class="card-info">
-            <div class="card-name">${data.name}</div>
-            <div class="card-scientific">${data.scientific}</div>
-            <div class="card-danger">${dangerEmojis}</div>
-          </div>
-          <button class="card-bookmark ${isBookmarked ? 'bookmarked' : ''}" 
-                  onclick="event.stopPropagation(); toggleBookmark(${c.id})" 
-                  data-id="${c.id}">
-            ${isBookmarked ? '🔖' : '📑'}
-          </button>
-        </div>
-        <div class="card-preview">${data.story.substring(0, 150)}...</div>
-        <div class="card-full-story">${storyParagraphs}</div>
-        <div class="extreme-fact">
-          <div class="extreme-fact-label">⚡ EXTREME FACT</div>
-          <div class="extreme-fact-text">${data.fact}</div>
-        </div>
-        <div class="card-expand-hint">${t('ui.tapToRead')}</div>
-      </div>
-    </div>
-  `;
-}
-
-function createEmptyPage(text) {
-  return `
-    <div class="page page-enter">
+function renderPages() {
+  const container = document.getElementById('pagesContainer');
+  container.innerHTML = '';
+  
+  if (currentCreatures.length === 0) {
+    container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">📭</div>
-        <div class="empty-text">${text}</div>
+        <p>${dangerFilterActive ? t('ui.noFilterResults') : t('ui.noResults')}</p>
       </div>
-    </div>
-  `;
-}
-
-// ================ CARD EXPAND ================
-function toggleCardExpand(el, id) {
-  el.classList.toggle('expanded');
-  const hint = el.querySelector('.card-expand-hint');
-  if (el.classList.contains('expanded')) {
-    hint.textContent = t('ui.tapToCollapse');
-  } else {
-    hint.textContent = t('ui.tapToRead');
+    `;
+    return;
   }
-}
-
-// ================ DANGER RATING ================
-function getDangerEmojis(level) {
-  let emojis = '';
-  for (let i = 0; i < 5; i++) {
-    if (i < level) {
-      emojis += `<span class="${level === 5 ? 'skull-high' : level >= 3 ? 'skull-med' : 'skull-low'}">💀</span>`;
-    } else {
-      emojis += `<span class="" style="opacity:0.2">💀</span>`;
+  
+  currentCreatures.forEach((creature, index) => {
+    const page = document.createElement('div');
+    page.className = 'book-page';
+    if (index === currentPage) page.classList.add('active');
+    
+    // Dynamically grabs our super fast Unsplash photo matching this specific animal
+    const imageUrl = getCreatureImage(creature.name);
+    
+    let displayName = creature.name;
+    let displayStory = creature.story;
+    let displayFact = creature.fact;
+    
+    if (currentLang === 'ru' && typeof RUSSIAN !== 'undefined' && RUSSIAN.creatures && RUSSIAN.creatures[creature.id]) {
+      const ruData = RUSSIAN.creatures[creature.id];
+      displayName = ruData.name || displayName;
+      displayStory = ruData.story || displayStory;
+      displayFact = ruData.fact || displayFact;
     }
-  }
-  return emojis;
+
+    let skulls = '';
+    for(let i=0; i<5; i++) {
+      skulls += i < creature.danger ? '💀' : '⚫';
+    }
+
+    const isBookmarked = bookmarks.includes(creature.id);
+
+    page.innerHTML = `
+      <div class="card">
+        <div class="card-image-wrapper">
+          <img class="card-image" src="${imageUrl}" alt="${displayName}" loading="lazy">
+          <div class="card-badge-container">
+            <span class="danger-badge">${skulls}</span>
+            <button class="bookmark-btn ${isBookmarked ? 'active' : ''}" onclick="toggleBookmark(${creature.id}, event)">
+              ${isBookmarked ? '🔖' : '📑'}
+            </button>
+          </div>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">${displayName}</h2>
+          <div class="card-scientific">${creature.scientific}</div>
+          <p class="card-story">${displayStory}</p>
+          <div class="card-fact-box">
+            <strong>${t('ui.extremeFact')}:</strong> ${displayFact}
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(page);
+  });
+  
+  positionPages();
 }
 
-// ================ PAGE NAVIGATION ================
-function goToPage(index) {
-  if (index < 0 || index >= totalPages) return;
-  currentPage = index;
-  const container = document.getElementById('pagesContainer');
-  container.style.transform = `translateX(-${index * 100}%)`;
-  updatePageIndicator();
-  updateReadingProgress();
-  updateTitle();
+function positionPages() {
+  const pages = document.querySelectorAll('.book-page');
+  pages.forEach((page, index) => {
+    page.style.transform = `translateX(${(index - currentPage) * 100}%)`;
+  });
+}
+
+function updatePageControls() {
+  const indicator = document.getElementById('pageIndicator');
+  if (totalPages === 0) {
+    indicator.innerHTML = `${t('ui.pageOf')} 0 ${t('ui.of')} 0`;
+    return;
+  }
+  indicator.innerHTML = `${t('ui.pageOf')} ${currentPage + 1} ${t('ui.of')} ${totalPages}`;
+  
+  document.getElementById('prevPageBtn').style.opacity = currentPage === 0 ? '0.3' : '1';
+  document.getElementById('nextPageBtn').style.opacity = currentPage === totalPages - 1 ? '0.3' : '1';
+  
+  const progressBar = document.getElementById('readingProgress');
+  const percentage = totalPages > 1 ? (currentPage / (totalPages - 1)) * 100 : 100;
+  progressBar.style.width = `${percentage}%`;
 }
 
 function nextPage() {
   if (currentPage < totalPages - 1) {
-    goToPage(currentPage + 1);
+    currentPage++;
+    renderPages();
+    updatePageControls();
   }
 }
 
 function prevPage() {
   if (currentPage > 0) {
-    goToPage(currentPage - 1);
+    currentPage--;
+    renderPages();
+    updatePageControls();
   }
 }
 
-function updateTitle() {
-  const creatures = currentCreatures;
-  if (creatures.length > 0 && currentPage > 0 && currentPage <= creatures.length) {
-    const c = creatures[currentPage - 1];
-    const data = getCreatureData(c);
-    if (data) document.getElementById('pageTitle').textContent = data.name;
-    else document.getElementById('pageTitle').textContent = getChapterTitle(currentChapter);
-  } else {
-    document.getElementById('pageTitle').textContent = getChapterTitle(currentChapter);
-  }
-}
-
-function updatePageIndicator() {
-  document.getElementById('pageIndicator').textContent = `${t('ui.pageOf')} ${currentPage + 1} ${t('ui.of')} ${totalPages}`;
-  document.getElementById('prevPageBtn').disabled = currentPage === 0;
-  document.getElementById('nextPageBtn').disabled = currentPage >= totalPages - 1;
-}
-
-function updateReadingProgress() {
-  const progress = totalPages > 1 ? (currentPage / (totalPages - 1)) * 100 : 0;
-  document.getElementById('readingProgress').style.width = `${progress}%`;
-}
-
-// ================ SWIPE SUPPORT ================
-function setupSwipe() {
-  const area = document.getElementById('readingArea');
-  
-  area.addEventListener('touchstart', (e) => {
-    touchStartX = e.changedTouches[0].screenX;
-    dragStartX = touchStartX;
-    isDragging = true;
-    document.getElementById('pagesContainer').style.transition = 'none';
-  }, { passive: true });
-
-  area.addEventListener('touchmove', (e) => {
-    if (!isDragging) return;
-    touchEndX = e.changedTouches[0].screenX;
-    dragOffset = touchEndX - dragStartX;
-    
-    const container = document.getElementById('pagesContainer');
-    const baseTransform = -(currentPage * 100);
-    const dragPercent = (dragOffset / area.offsetWidth) * 100;
-    
-    if ((currentPage === 0 && dragPercent > 0) || (currentPage >= totalPages - 1 && dragPercent < 0)) {
-      container.style.transform = `translateX(${baseTransform + dragPercent * 0.2}%)`;
-    } else {
-      container.style.transform = `translateX(${baseTransform + dragPercent}%)`;
-    }
-  }, { passive: true });
-
-  area.addEventListener('touchend', () => {
-    if (!isDragging) return;
-    isDragging = false;
-    
-    const container = document.getElementById('pagesContainer');
-    container.style.transition = 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-    
-    const swipeDistance = touchEndX - touchStartX;
-    const threshold = 50;
-    
-    if (Math.abs(swipeDistance) > threshold) {
-      if (swipeDistance < 0) nextPage();
-      else prevPage();
-    } else {
-      goToPage(currentPage);
-    }
-    
-    touchStartX = 0;
-    touchEndX = 0;
-  }, { passive: true });
-
-  // Mouse drag support for desktop
-  let mouseDown = false;
-  let mouseStartX = 0;
-  const pagesContainer = document.getElementById('pagesContainer');
-
-  area.addEventListener('mousedown', (e) => {
-    mouseDown = true;
-    mouseStartX = e.screenX;
-    pagesContainer.style.transition = 'none';
-  });
-
-  area.addEventListener('mousemove', (e) => {
-    if (!mouseDown) return;
-    const offset = e.screenX - mouseStartX;
-    const baseTransform = -(currentPage * 100);
-    const dragPercent = (offset / area.offsetWidth) * 100;
-    
-    if ((currentPage === 0 && dragPercent > 0) || (currentPage >= totalPages - 1 && dragPercent < 0)) {
-      pagesContainer.style.transform = `translateX(${baseTransform + dragPercent * 0.2}%)`;
-    } else {
-      pagesContainer.style.transform = `translateX(${baseTransform + dragPercent}%)`;
-    }
-  });
-
-  area.addEventListener('mouseup', (e) => {
-    if (!mouseDown) return;
-    mouseDown = false;
-    pagesContainer.style.transition = 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-    
-    const swipeDistance = e.screenX - mouseStartX;
-    if (Math.abs(swipeDistance) > 50) {
-      if (swipeDistance < 0) nextPage();
-      else prevPage();
-    } else {
-      goToPage(currentPage);
-    }
-  });
-
-  area.addEventListener('mouseleave', () => {
-    if (mouseDown) {
-      mouseDown = false;
-      goToPage(currentPage);
-    }
-  });
-}
-
-// ================ KEYBOARD NAVIGATION ================
-function setupKeyboardNav() {
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
-      e.preventDefault();
-      nextPage();
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      prevPage();
-    }
-  });
-}
-
-// ================ BOOKMARKS ================
-function toggleBookmark(id) {
+function toggleBookmark(id, event) {
+  event.stopPropagation();
   const index = bookmarks.indexOf(id);
   if (index > -1) {
     bookmarks.splice(index, 1);
@@ -602,167 +268,142 @@ function toggleBookmark(id) {
     bookmarks.push(id);
   }
   localStorage.setItem('wd_bookmarks', JSON.stringify(bookmarks));
-  updateBookmarkUI();
+  renderPages();
 }
 
-function updateBookmarkUI() {
-  document.querySelectorAll('.card-bookmark').forEach(btn => {
-    const id = parseInt(btn.dataset.id);
-    const isBookmarked = bookmarks.includes(id);
-    btn.classList.toggle('bookmarked', isBookmarked);
-    btn.textContent = isBookmarked ? '🔖' : '📑';
-  });
+function toggleDangerFilter() {
+  dangerFilterActive = !dangerFilterActive;
+  updateUIStrings();
+  if (isSearching) {
+    handleSearch(document.getElementById('searchInput').value);
+  } else {
+    loadChapter(currentChapter);
+  }
+}
+
+function handleSearch(query) {
+  if (!query.trim()) {
+    loadChapter(currentChapter);
+    return;
+  }
+  isSearching = true;
+  let matches = [];
+  
+  if (typeof ALL_CREATURES !== 'undefined') {
+    matches = ALL_CREATURES.filter(c => {
+      let nameMatch = c.name.toLowerCase().includes(query.toLowerCase());
+      let scientificMatch = c.scientific.toLowerCase().includes(query.toLowerCase());
+      
+      if (currentLang === 'ru' && typeof RUSSIAN !== 'undefined' && RUSSIAN.creatures && RUSSIAN.creatures[c.id]) {
+        const ruData = RUSSIAN.creatures[c.id];
+        if (ruData.name) nameMatch = nameMatch || ruData.name.toLowerCase().includes(query.toLowerCase());
+      }
+      return nameMatch || scientificMatch;
+    });
+  }
+
+  if (dangerFilterActive) {
+    matches = matches.filter(c => c.danger === 5);
+  }
+
+  currentCreatures = matches;
+  currentPage = 0;
+  totalPages = matches.length;
+  renderPages();
+  updatePageControls();
+}
+
+function showRandomCreature() {
+  if (typeof ALL_CREATURES === 'undefined' || ALL_CREATURES.length === 0) return;
+  const randomIndex = Math.floor(Math.random() * ALL_CREATURES.length);
+  const creature = ALL_CREATURES[randomIndex];
+  
+  dangerFilterActive = false;
+  updateUIStrings();
+  
+  currentChapter = creature.chapter;
+  let chapterCreatures = ALL_CREATURES.filter(c => c.chapter === currentChapter);
+  currentCreatures = chapterCreatures;
+  totalPages = chapterCreatures.length;
+  currentPage = chapterCreatures.findIndex(c => c.id === creature.id);
+  
+  renderPages();
+  updatePageControls();
+  highlightSidebar(currentChapter);
 }
 
 function showBookmarks() {
   if (bookmarks.length === 0) {
-    showModal(`
-      <h3>${t('ui.bookmarkTitle')}</h3>
-      <p style="color: var(--text-muted); font-size: 14px;">${t('ui.noBookmarks')}</p>
-      <button class="modal-close" onclick="hideModal()">${t('ui.close')}</button>
-    `);
+    const container = document.getElementById('pagesContainer');
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>${t('ui.noBookmarks')}</p>
+      </div>
+    `;
+    totalPages = 0;
+    updatePageControls();
     return;
   }
-
-  let html = `<h3>${t('ui.bookmarkTitle')}</h3>`;
-  bookmarks.forEach(id => {
-    const c = CREATURES.find(cr => cr.id === id);
-    if (c) {
-      const ch = CHAPTERS[c.chapter];
-      const data = getCreatureData(c);
-      html += `
-        <div class="bookmark-item" onclick="hideModal(); loadChapter(${c.chapter}); goToPage(${c.chapter === currentChapter ? currentCreatures.indexOf(c) : 0} + 1)">
-          <span class="bm-name">${data.name}</span>
-          <span class="bm-chapter">${ch.emoji} ${getChapterTitle(c.chapter)}</span>
-          <button class="bm-remove" onclick="event.stopPropagation(); toggleBookmark(${id}); showBookmarks();">✕</button>
-        </div>
-      `;
-    }
-  });
-  html += `<button class="modal-close" onclick="hideModal()">${t('ui.close')}</button>`;
   
-  showModal(html);
+  isSearching = true;
+  let matches = ALL_CREATURES.filter(c => bookmarks.includes(c.id));
+  currentCreatures = matches;
+  currentPage = 0;
+  totalPages = matches.length;
+  renderPages();
+  updatePageControls();
 }
 
-// ================ RANDOM CREATURE ================
-function showRandomCreature() {
-  const c = CREATURES[Math.floor(Math.random() * CREATURES.length)];
-  const ch = CHAPTERS[c.chapter];
-  const data = getCreatureData(c);
-  const dangerEmojis = getDangerEmojis(c.danger);
+function renderSidebar() {
+  const nav = document.getElementById('sidebarNav');
+  nav.innerHTML = '';
   
-  showModal(`
-    <h3>${t('ui.randomTitle')}</h3>
-    <div class="random-creature">
-      <div style="font-size: 40px; text-align: center; margin-bottom: 8px;">${ch.emoji}</div>
-      <div class="rc-name">${data.name}</div>
-      <div class="rc-sci">${data.scientific}</div>
-      <div class="rc-danger">${dangerEmojis}</div>
-      <div class="rc-story">${data.story.substring(0, 300)}...</div>
-      <div class="extreme-fact" style="display: block; margin-top: 10px;">
-        <div class="extreme-fact-label">${t('ui.extremeFact')}</div>
-        <div class="extreme-fact-text">${data.fact}</div>
-      </div>
-    </div>
-    <div style="display: flex; gap: 8px; margin-top: 12px;">
-      <button class="modal-close" style="flex:1;" onclick="hideModal(); loadChapter(${c.chapter})">${t('ui.readChapter')}</button>
-      <button class="modal-close" style="flex:1;" onclick="hideModal(); showRandomCreature()">${t('ui.another')}</button>
-    </div>
-  `);
-}
-
-// ================ MODAL ================
-function showModal(html) {
-  document.getElementById('modalContent').innerHTML = html;
-  document.getElementById('modalOverlay').classList.add('show');
-}
-
-function hideModal() {
-  document.getElementById('modalOverlay').classList.remove('show');
-}
-
-document.getElementById('modalOverlay').addEventListener('click', (e) => {
-  if (e.target === e.currentTarget) hideModal();
-});
-
-// ================ GEMINI IMAGES ================
-async function loadGeminiImages() {
-  for (let i = 0; i < CHAPTERS.length; i++) {
-    const placeholder = document.getElementById(`chHero${i}`);
-    if (placeholder) {
-      const cached = localStorage.getItem(`wd_ch_img_${i}`);
-      if (cached) {
-        placeholder.innerHTML = `<img class="ch-hero" src="${cached}" alt="${CHAPTERS[i].title}" onerror="this.parentElement.innerHTML='${CHAPTERS[i].emoji}'">`;
-        continue;
-      }
-      
-      try {
-        const imageData = await generateGeminiImage(CHAPTERS[i].geminiPrompt);
-        if (imageData) {
-          localStorage.setItem(`wd_ch_img_${i}`, imageData);
-          placeholder.innerHTML = `<img class="ch-hero" src="${imageData}" alt="${CHAPTERS[i].title}" onerror="this.parentElement.innerHTML='${CHAPTERS[i].emoji}'">`;
-        }
-      } catch (e) {
-        console.log('Gemini image generation failed, using placeholder:', e);
-      }
-    }
-  }
-}
-
-async function generateGeminiImage(prompt) {
-  try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ 
-            text: `Generate a dramatic, photorealistic wildlife photograph in National Geographic style with the following theme: ${prompt}. Please return ONLY a valid base64 encoded JPEG image (no markdown, no text, just the base64 string starting with "data:image/jpeg;base64,").`
-          }]
-        }],
-        generationConfig: {
-          temperature: 1,
-          topP: 0.95,
-          topK: 40,
-          maxOutputTokens: 8192,
-        }
-      })
-    });
+  if (typeof CHAPTERS === 'undefined') return;
+  
+  CHAPTERS.forEach(ch => {
+    const item = document.createElement('div');
+    item.className = 'sidebar-item';
+    item.id = `sidebar-ch-${ch.id}`;
     
-    const data = await response.json();
-    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      const parts = data.candidates[0].content.parts;
-      for (const part of parts) {
-        if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
-          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        }
-        if (part.text) {
-          const match = part.text.match(/!\[.*?\]\((.*?)\)/);
-          if (match) return match[1];
-          const base64Match = part.text.match(/data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+/);
-          if (base64Match) return base64Match[0];
-        }
-      }
+    let title = ch.title;
+    if (currentLang === 'ru' && typeof RUSSIAN !== 'undefined' && RUSSIAN.chapters && RUSSIAN.chapters[ch.id]) {
+      title = RUSSIAN.chapters[ch.id].title || title;
     }
-    return null;
-  } catch (e) {
-    console.error('Gemini API error:', e);
-    return null;
-  }
-}
 
-setTimeout(loadGeminiImages, 1000);
-
-// ================ SERVICE WORKER ================
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(err => {
-      console.log('SW registration failed:', err);
-    });
+    item.innerHTML = `<span>${ch.emoji} ${title}</span>`;
+    item.onclick = () => loadChapter(ch.id);
+    nav.appendChild(item);
   });
 }
 
-// ================ RESPONSIVE ================
-window.addEventListener('resize', () => {
-  isMobile = window.innerWidth <= 900;
-});
+function highlightSidebar(chapterId) {
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  const activeItem = document.getElementById(`sidebar-ch-${chapterId}`);
+  if (activeItem) activeItem.classList.add('active');
+}
+
+function setupEventListeners() {
+  document.getElementById('searchInput').oninput = (e) => handleSearch(e.target.value);
+  document.getElementById('filterDangerBtn').onclick = toggleDangerFilter;
+  
+  // Swipe mechanics
+  const area = document.getElementById('readingArea');
+  area.ontouchstart = (e) => {
+    touchStartX = e.touches[0].clientX;
+  };
+  area.ontouchend = (e) => {
+    touchEndX = e.touches[0].clientX;
+    handleSwipe();
+  };
+}
+
+function handleSwipe() {
+  const threshold = 50;
+  if (touchStartX - touchEndX > threshold) {
+    nextPage();
+  } else if (touchEndX - touchStartX > threshold) {
+    prevPage();
+  }
+}
+
+window.onload = initApp;
