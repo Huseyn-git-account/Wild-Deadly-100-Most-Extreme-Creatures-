@@ -1003,3 +1003,23 @@ body {
     transform: translateX(0);
   }
 }
+
+/* Container for all pages side-by-side */
+#pagesContainer {
+  display: flex;
+  width: 100%;
+  transition: transform 0.4s ease-in-out;
+}
+
+/* Force each page to be the full width of the screen/container */
+.page {
+  min-width: 100%;
+  box-sizing: border-box;
+  padding: 20px;
+}
+
+/* Ensure the wrapper hides anything outside the current page */
+#readingArea {
+  overflow: hidden;
+  width: 100%;
+}
