@@ -82,8 +82,36 @@ function showRandomCreature() {
 }
 
 function showBookmarks() {
+  // 1. Set the creatures to the bookmarked ones
   currentCreatures = CREATURES.filter(c => bookmarks.includes(c.id));
-  loadChapter(currentChapter);
+  
+  // 2. Clear the sidebar active state (optional but looks better)
+  document.querySelectorAll('.chapter-btn').forEach(btn => btn.classList.remove('active'));
+  
+  // 3. Build the pages WITHOUT calling loadChapter() 
+  // (because loadChapter resets the list based on chapterIndex)
+  const container = document.getElementById('pagesContainer');
+  if (!container) return;
+
+  container.innerHTML = currentCreatures.map(c => {
+    const data = getCreatureData(c);
+    const formattedName = data.name.replace(/\s+/g, '_');
+    const imageSrc = `https://commons.wikimedia.org/wiki/Special:FilePath/${formattedName}.jpg?width=600`;
+    return `
+      <div class="page">
+        <div class="creature-card">
+          <img class="card-image" src="${imageSrc}" alt="${data.name}" onerror="this.style.display='none'">
+          <h2>${data.name}</h2>
+          <p><em>${data.scientific}</em></p>
+          <p>${data.story.split('. ').join('.<br><br>')}</p>
+          <div class="extreme-fact">⚡ ${t('ui.extremeFact')}: ${data.fact}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  totalPages = currentCreatures.length;
+  goToPage(0);
 }
 
 function updateNav() {
