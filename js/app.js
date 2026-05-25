@@ -1,6 +1,9 @@
 // =============================================
-// WILD AND DEADLY — Main Application (Optimized)
+// WILD AND DEADLY — Main Application (Restored)
 // =============================================
+
+const GEMINI_API_KEY = 'AIzaSyDA0GhN6rgBjMNO4uGffXo_FaCJnp7TR8w';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
 
 // State
 let currentPage = 0;
@@ -21,11 +24,44 @@ let isDragging = false;
 let dragStartX = 0;
 let dragOffset = 0;
 
-// ================ FAST AUTOMATED IMAGE ENGINE ================
-function getCreatureImage(englishName) {
-  // Always uses the strict English database name to ensure Unsplash never breaks
-  const query = encodeURIComponent(englishName.trim().toLowerCase() + " animal wildlife");
-  return `https://images.unsplash.com/featured/600x400/?${query}`;
+// Cache for loaded images to prevent repeated API calls
+const imageCache = {};
+
+// ================ ORIGINAL GEMINI IMAGE ENGINE (FIXED) ================
+async function fetchGeminiImage(promptText) {
+  if (imageCache[promptText]) return imageCache[promptText];
+  
+  try {
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `${promptText}. Output ONLY a high-quality, valid public image URL from Unsplash or a reliable wildlife database that matches this description. Do not include markdown, code blocks, or text. Just the raw URL string starting with http.`
+          }]
+        }]
+      })
+    });
+    
+    const data = await response.json();
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      let textResult = data.candidates[0].content.parts[0].text.trim();
+      
+      // Clean up any accidental markdown formatting Gemini might return
+      textResult = textResult.replace(/```html|```javascript|```text|```/g, '').trim();
+      const urlMatch = textResult.match(/https?:\/\/[^\s"']+/);
+      
+      if (urlMatch) {
+        imageCache[promptText] = urlMatch[0];
+        return urlMatch[0];
+      }
+    }
+    return null;
+  } catch (e) {
+    console.error('Gemini API error:', e);
+    return null;
+  }
 }
 
 // ================ I18N ================
@@ -167,13 +203,16 @@ function renderPages() {
     return;
   }
   
+  // Get the current chapter's prompt from data.js
+  let chapterPrompt = "Wildlife photography";
+  if (typeof CHAPTERS !== 'undefined' && CHAPTERS[currentChapter]) {
+    chapterPrompt = CHAPTERS[currentChapter].geminiPrompt || chapterPrompt;
+  }
+  
   currentCreatures.forEach((creature, index) => {
     const page = document.createElement('div');
     page.className = 'book-page';
     if (index === currentPage) page.classList.add('active');
-    
-    // CRITICAL FIX: Always passes creature.name (English string) into the engine, regardless of localization
-    const imageUrl = getCreatureImage(creature.name);
     
     let displayName = creature.name;
     let displayStory = creature.story;
@@ -192,11 +231,12 @@ function renderPages() {
     }
 
     const isBookmarked = bookmarks.includes(creature.id);
+    const imageId = `img-${creature.id}`;
 
     page.innerHTML = `
       <div class="card">
         <div class="card-image-wrapper">
-          <img class="card-image" src="${imageUrl}" alt="${displayName}" loading="lazy">
+          <img class="card-image" id="${imageId}" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'><rect width='100%' height='100%' fill='%23112411'/></svg>" alt="${displayName}" loading="lazy">
           <div class="card-badge-container">
             <span class="danger-badge">${skulls}</span>
             <button class="bookmark-btn ${isBookmarked ? 'active' : ''}" onclick="toggleBookmark(${creature.id}, event)">
@@ -215,6 +255,15 @@ function renderPages() {
       </div>
     `;
     container.appendChild(page);
+
+    // Call your original Gemini configuration using the strict layout prompt
+    const specificPrompt = `${chapterPrompt} focusing specifically on a ${creature.name}`;
+    fetchGeminiImage(specificPrompt).then(url => {
+      const imgEl = document.getElementById(imageId);
+      if (imgEl && url) {
+        imgEl.src = url;
+      }
+    });
   });
   
   positionPages();
