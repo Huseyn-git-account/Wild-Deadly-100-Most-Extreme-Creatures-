@@ -23,9 +23,9 @@ let dragOffset = 0;
 
 // ================ FAST AUTOMATED IMAGE ENGINE ================
 function getCreatureImage(creatureName) {
-  // Cleans the name and forces Unsplash to prioritize the exact animal first
-  const query = encodeURIComponent(creatureName.trim().toLowerCase());
-  return `https://images.unsplash.com/featured/600x400/?${query},animal`;
+  // Forces the search to strictly use the English database name and append wildlife keywords
+  const query = encodeURIComponent(creatureName.trim().toLowerCase() + " animal wildlife");
+  return `https://images.unsplash.com/featured/600x400/?${query}`;
 }
 
 // ================ I18N ================
