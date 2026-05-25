@@ -155,15 +155,21 @@ function createCreaturePage(c) {
   const dangerEmojis = getDangerEmojis(c.danger);
   const isBookmarked = bookmarks.includes(c.id);
   
-  // DIRECT IMAGE SOURCE: No API needed
-  const imageSrc = `https://source.unsplash.com/600x400/?${encodeURIComponent(data.name)},wildlife`;
+  // FIXED: Using Wikimedia Commons for high-reliability images
+  // This replaces the broken Unsplash link
+  const formattedName = data.name.replace(/\s+/g, '_');
+  const imageSrc = `https://commons.wikimedia.org/wiki/Special:FilePath/${formattedName}.jpg?width=600`;
 
   return `
     <div class="page page-enter">
       <div class="creature-card" onclick="toggleCardExpand(this, ${c.id})" data-id="${c.id}">
         <div class="card-header">
           <div class="card-image-wrapper">
-            <img class="card-image" src="${imageSrc}" alt="${data.name}" style="width: 100%; border-radius: 8px; display: block;">
+            <img class="card-image" 
+                 src="${imageSrc}" 
+                 alt="${data.name}" 
+                 onerror="this.style.display='none'" 
+                 style="width: 100%; border-radius: 8px; display: block;">
           </div>
           <div class="card-info">
             <div class="card-name">${data.name}</div>
